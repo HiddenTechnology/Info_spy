@@ -17,12 +17,15 @@ chmod +x install_kali.sh
 
 # 📱 Instalação Termux
 
+```
+
 termux-setup-storage
 
 pkg install wget -y
 
-
+wget https://github.com/HiddenTechnology/Info_spy/releases/download/Downloads/install_termux.sh
 
 chmod +x install_termux.sh 
 
 ./install_termux.sh
+```
