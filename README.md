@@ -1,8 +1,11 @@
 # Info_spy
 Esta ferramenta deve ser usada totalmente para fins educacionais.
 
-# Instalação Kali via termux
+# 🛠 Instalação Kali via Termux
 
+Execute os comandos abaixo, um por um (use o botão copiar à direita):
+
+```bash
 termux-setup-storage
 
 wget https://github.com/HiddenTechnology/Info_spy/releases/download/Downloads/install_kali.sh
@@ -10,15 +13,3 @@ wget https://github.com/HiddenTechnology/Info_spy/releases/download/Downloads/in
 chmod +x install_kali.sh
 
 ./install_kali.sh
-
-# Instalação Termux
-
-termux-setup-storage
-
-pkg install wget -y
-
-wget https://github.com/HiddenTechnology/Info_spy/releases/download/Downloads/install_termux.sh
-
-chmod +x install_termux.sh 
-
-./install_termux.sh
