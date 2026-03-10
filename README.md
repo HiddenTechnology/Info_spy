@@ -8,6 +8,12 @@ Execute os comandos abaixo, um por um (use o botão copiar à direita):
 ```bash
 termux-setup-storage
 
+sudo apt apt install git -y
+
+git clone https://github.com/HiddenTechnology/Info_spy
+
+cd Info_spy
+
 wget https://github.com/HiddenTechnology/Info_spy/releases/download/Downloads/install_kali.sh
 
 chmod +x install_kali.sh
@@ -22,6 +28,12 @@ chmod +x install_kali.sh
 termux-setup-storage
 
 pkg install wget -y
+
+pkg install git -y
+
+git clone https://github.com/HiddenTechnology/Info_spy
+
+cd Info_spy 
 
 wget https://github.com/HiddenTechnology/Info_spy/releases/download/Downloads/install_termux.sh
 
