@@ -1,2 +1,9 @@
 # Info_spy
-Coleta de informações. Lembrando que essa ferramenta e totalmente para fins educacionais.
+Esta ferramenta deve ser usada totalmente para fins educacionais.
+
+# Install Kali
+
+
+
+# Install Termux
+
