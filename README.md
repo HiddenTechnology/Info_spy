@@ -8,6 +8,8 @@ Execute os comandos abaixo, um por um (use o botão copiar à direita):
 ```bash
 termux-setup-storage
 
+sudo apt install wget -y
+
 sudo apt apt install git -y
 
 git clone https://github.com/HiddenTechnology/Info_spy
