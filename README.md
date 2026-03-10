@@ -13,3 +13,16 @@ wget https://github.com/HiddenTechnology/Info_spy/releases/download/Downloads/in
 chmod +x install_kali.sh
 
 ./install_kali.sh
+
+# Info_spy
+Esta ferramenta deve ser usada totalmente para fins educacionais.
+
+# ⚙️ Instalação Kali via Termux
+
+Para instalar no Kali dentro do Termux, execute estes comandos:
+
+```bash
+termux-setup-storage
+
+chmod +x install_kali.sh
+
