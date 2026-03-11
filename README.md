@@ -8,6 +8,8 @@ Execute os comandos abaixo, um por um (use o botão copiar à direita):
 ```bash
 termux-setup-storage
 
+pip install pytz --break-system-packages
+
 sudo apt install wget -y
 
 sudo apt install git -y
@@ -28,6 +30,8 @@ chmod +x install_kali.sh
 ```
 
 termux-setup-storage
+
+pip install pytz
 
 pkg install wget -y
 
