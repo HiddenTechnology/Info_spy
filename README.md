@@ -8,8 +8,6 @@ Execute os comandos abaixo, um por um (use o botão copiar à direita):
 ```bash
 termux-setup-storage
 
-pip3 install pytz --break-system-packages
-
 sudo apt install wget -y
 
 sudo apt install git -y
@@ -23,6 +21,8 @@ wget https://github.com/HiddenTechnology/Info_spy/releases/download/Downloads/in
 chmod +x install_kali.sh
 
 ./install_kali.sh
+
+pip3 install pytz --break-system-packages
 ```
 
 # 📱 Instalação Termux
