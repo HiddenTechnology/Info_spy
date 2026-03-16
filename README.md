@@ -21,8 +21,6 @@ wget https://github.com/HiddenTechnology/Info_spy/releases/download/Downloads/in
 chmod +x install_kali.sh
 
 ./install_kali.sh
-
-pip3 install pytz --break-system-packages
 ```
 
 # 📱 Instalação Termux
