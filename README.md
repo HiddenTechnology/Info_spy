@@ -3,11 +3,14 @@ Esta ferramenta deve ser usada totalmente para fins educacionais.
 
 # 🛠 Instalação Kali via Termux
 
+O comando termux-setup-storage precisa ser executado no termux antes de iniciar o kali
+
 Execute os comandos abaixo, um por um (use o botão copiar à direita):
 
 ```bash
 termux-setup-storage
-
+```
+```
 sudo apt install wget -y
 
 sudo apt install git -y
