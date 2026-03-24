@@ -25,7 +25,9 @@ chmod +x install_kali.sh
 
 ./install_kali.sh
 ```
-
+```
+python3 app.py
+```
 # 📱 Instalação Termux
 
 ```
@@ -47,4 +49,7 @@ wget https://github.com/HiddenTechnology/Info_spy/releases/download/Downloads/in
 chmod +x install_termux.sh 
 
 ./install_termux.sh
+```
+```
+python app.py
 ```
