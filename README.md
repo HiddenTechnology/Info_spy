@@ -1,5 +1,5 @@
 # Info_spy
-Esta ferramenta deve ser usada totalmente para fins educacionais.
+Esta ferramenta deve ser usada totalmente para fins educacionais ou profissionalmente.
 
 # 🛠 Instalação Kali via Termux
 
