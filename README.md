@@ -1,5 +1,26 @@
 # Info_spy
-Esta ferramenta deve ser usada totalmente para fins educacionais ou profissionalmente.
+Esta ferramenta deve ser usada totalmente para fins educacionais ou profissionalmente como perícia ou investigação.
+
+# Características de captura
+
+• Data
+• Hora
+• Porcentagem de bateria
+• IP Interno e público
+• Imagem
+• Localização
+
+# Outras características 
+
+• Redirecionamento
+• Modelo de páginas prontas
+• Salvamento de páginas
+
+# Personalização de pré-visualização 
+
+• Título 
+• Descrição 
+• Imagem
 
 # 🛠 Instalação Kali via Termux
 
