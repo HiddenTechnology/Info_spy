@@ -3,24 +3,24 @@ Esta ferramenta deve ser usada totalmente para fins educacionais ou profissional
 
 # Características de captura
 
-• Data
-• Hora
-• Porcentagem de bateria
-• IP Interno e público
-• Imagem
-• Localização
+- • Data
+- • Hora
+- • Porcentagem de bateria
+- • IP Interno e público
+- • Imagem
+- • Localização
 
 # Outras características 
 
-• Redirecionamento
-• Modelo de páginas prontas
-• Salvamento de páginas
+- • Redirecionamento
+- • Modelo de páginas prontas
+- • Salvamento de páginas
 
 # Personalização de pré-visualização 
 
-• Título 
-• Descrição 
-• Imagem
+- • Título
+- • Descrição
+- • Imagem
 
 # 🛠 Instalação Kali via Termux
 
