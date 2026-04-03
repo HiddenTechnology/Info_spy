@@ -6,7 +6,8 @@ Esta ferramenta deve ser usada totalmente para fins educacionais ou profissional
 - Data
 - Hora
 - Porcentagem de bateria
-- IP Interno e público
+- IP Interno
+- IP Público
 - Imagem
 - Localização
 
