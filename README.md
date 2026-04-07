@@ -33,8 +33,8 @@ Execute os comandos abaixo,use o botão copiar à direita :
 termux-setup-storage
 ```
 ```
+sudo apt install python-is-python3
 sudo apt install wget -y
-
 sudo apt install git -y
 
 git clone https://github.com/HiddenTechnology/Info_spy
@@ -48,7 +48,7 @@ chmod +x install_kali.sh
 ./install_kali.sh
 ```
 ```
-python3 app.py
+python app.py
 ```
 # 📱 Instalação Termux
 
