@@ -79,13 +79,13 @@ python app.py
 
 É preciso primeiro instalar o python no seu computador!
 
-Depois baixe o repositório
+Depois baixe o repositório abaixo
 
 https://github.com/HiddenTechnology/Info_spy/archive/refs/heads/main.zip
 
 Extraia 
 
-abra o terminal  e execute 
+Abra a pasta, rode o terminal e execute o comando abaixo
 ```
 py -m pip install flask requests pytz urllib3
 ```
