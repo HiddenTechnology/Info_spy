@@ -75,3 +75,18 @@ chmod +x install_termux.sh
 ```
 python app.py
 ```
+# Instalação no Computador 
+
+É preciso instalar o python no seu computador
+
+```
+https://github.com/HiddenTechnology/Info_spy/archive/refs/heads/main.zip
+```
+Extraia 
+
+abra o terminal  e execute 
+```
+py -m pip install flask requests pytz urllib3
+```
+Só executar o arquivo computer.py
+
