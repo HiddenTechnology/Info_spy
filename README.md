@@ -23,7 +23,7 @@ Esta ferramenta deve ser usada totalmente para fins educacionais ou profissional
 - Descrição
 - Imagem
 
-# 🛠 Instalação Kali via Termux
+# 🛠 Instalação Kali/Debian
 
 O comando termux-setup-storage precisa ser executado no termux antes de iniciar o kali
 
@@ -41,11 +41,11 @@ git clone https://github.com/HiddenTechnology/Info_spy
 
 cd Info_spy
 
-wget https://github.com/HiddenTechnology/Info_spy/releases/download/Downloads/install_kali.sh
+wget https://github.com/HiddenTechnology/Info_spy/releases/download/Downloads/install.sh
 
-chmod +x install_kali.sh
+chmod +x install.sh
 
-./install_kali.sh
+./install.sh
 ```
 ```
 python app.py
